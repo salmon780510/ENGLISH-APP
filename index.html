@@ -69,6 +69,27 @@
             color: var(--text-main);
         }
 
+        /* 按鈕群組 */
+        .header-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            font-size: 16px;
+            background: #f4f4f5;
+            border: none;
+            padding: 6px;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-sub);
+        }
+
         .edit-btn {
             font-size: 12px;
             background: #e4e4e7;
@@ -77,6 +98,9 @@
             border-radius: 4px;
             cursor: pointer;
             color: var(--text-sub);
+            height: 32px;
+            display: flex;
+            align-items: center;
         }
 
         /* 模式切換按鈕 */
@@ -303,7 +327,8 @@
             align-items: center;
             gap: 20px;
             flex-shrink: 0;
-            padding-bottom: max(130px, env(safe-area-inset-bottom));
+            /* 修正：GitHub Pages 沒有廣告，恢復正常底部間距 (20px + iPhone Safe Area) */
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
             max-width: 600px;
             width: 100%;
             margin: 0 auto;
@@ -350,7 +375,7 @@
             background: var(--accent-hover);
         }
 
-        /* --- 編輯視窗 Modal --- */
+        /* --- Modal 共用 --- */
         .modal {
             display: none;
             position: fixed;
@@ -374,6 +399,26 @@
             gap: 15px;
         }
         .modal-title { font-weight: bold; font-size: 18px; text-align: center; margin-bottom: 5px; }
+        
+        /* 設定項目樣式 */
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .setting-label {
+            font-size: 14px;
+            color: var(--text-main);
+        }
+        .setting-control input {
+            width: 60px;
+            padding: 5px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
         
         .step-block {
             background: #f9fafb;
@@ -445,6 +490,7 @@
             resize: none;
             box-sizing: border-box;
             background: white;
+            white-space: pre-wrap; 
         }
 
         .modal-actions {
@@ -527,7 +573,11 @@
     <div class="header">
         <div class="header-top">
             <div class="app-title">🎧 Vibe English AI</div>
-            <button class="edit-btn" onclick="app.openEditor()">✏️ 匯入課程</button>
+            <div class="header-btns">
+                <!-- 新增：設定按鈕 -->
+                <button class="icon-btn" onclick="app.openSettings()" title="設定">⚙️</button>
+                <button class="edit-btn" onclick="app.openEditor()">✏️ 匯入</button>
+            </div>
         </div>
         <div class="mode-switch">
             <button class="mode-btn active" onclick="app.switchMode('full')">全文閱讀</button>
@@ -560,6 +610,25 @@
         <button class="btn-circle" onclick="app.nextSentence()">⏭</button>
     </div>
 
+    <!-- 設定彈窗 -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-title">播放設定</div>
+            <div class="setting-item">
+                <div class="setting-label">單句循環間隔 (秒)</div>
+                <div class="setting-control">
+                    <input type="number" id="loop-delay-input" min="0" max="10" value="0">
+                </div>
+            </div>
+            <div class="hint">設定當「單句循環」開啟時，每播完一次要休息幾秒再重播。</div>
+            
+            <div class="modal-actions">
+                <button class="btn-small btn-cancel" onclick="app.closeSettings()">取消</button>
+                <button class="btn-small btn-save" onclick="app.saveSettings()">儲存</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 編輯器彈窗 -->
     <div class="modal" id="editor-modal">
         <div class="modal-content">
@@ -583,7 +652,7 @@
                 </div>
             </div>
             <div class="step-block">
-                <div class="step-label">Step 2: 生成結果 (自動填入，可修改)</div>
+                <div class="step-label">Step 2: 生成結果 (可手動修改)</div>
                 <textarea id="json-input" placeholder="等待 AI 生成中..."></textarea>
             </div>
             <div class="modal-actions">
@@ -626,6 +695,7 @@
                 this.isPlaying = false;
                 this.isLooping = false;
                 this.currentMode = 'full';
+                this.loopDelay = 0; // 單句循環間隔 (秒)
                 
                 this.synth = window.speechSynthesis;
                 this.utterance = null;
@@ -636,6 +706,7 @@
                 this.audioFetchPromises = {}; 
                 this.apiKey = "";
                 this.isApiLoading = false;
+                this.delayTimer = null; // 計時器參照
                 
                 this.init = this.init.bind(this);
             }
@@ -661,6 +732,10 @@
                     }
                 }
 
+                // 讀取設定
+                const savedDelay = localStorage.getItem('vibe_loop_delay');
+                if (savedDelay) this.loopDelay = parseInt(savedDelay, 10) || 0;
+
                 this.loadSlot(this.currentSlotIndex);
 
                 const savedKey = localStorage.getItem('vibe_api_key');
@@ -676,17 +751,9 @@
                     this.synth.onvoiceschanged = () => { this.synth.getVoices(); };
                 }
                 
+                // 統一的播放結束處理
                 this.audioPlayer.onended = () => {
-                    if (this.isPlaying) {
-                        if (this.isLooping) {
-                            this.playSentence(this.currentIndex);
-                        } else {
-                            this.nextSentence(true);
-                        }
-                    } else {
-                        this.updatePlayBtn(false);
-                        this.updateMediaSessionState("paused");
-                    }
+                    this.handlePlaybackEnded();
                 };
                 
                 this.audioPlayer.onerror = (e) => {
@@ -699,6 +766,50 @@
                 
                 this.audioPlayer.onplay = () => this.updateMediaSessionState("playing");
                 this.audioPlayer.onpause = () => this.updateMediaSessionState("paused");
+            }
+
+            // --- 設定功能 ---
+            openSettings() {
+                document.getElementById('settings-modal').classList.add('open');
+                document.body.style.overflow = 'hidden';
+                document.getElementById('loop-delay-input').value = this.loopDelay;
+            }
+
+            closeSettings() {
+                document.getElementById('settings-modal').classList.remove('open');
+                document.body.style.overflow = '';
+            }
+
+            saveSettings() {
+                const delay = parseInt(document.getElementById('loop-delay-input').value, 10);
+                this.loopDelay = isNaN(delay) || delay < 0 ? 0 : delay;
+                localStorage.setItem('vibe_loop_delay', this.loopDelay);
+                this.closeSettings();
+                this.showToast(`設定已儲存：單句循環間隔 ${this.loopDelay} 秒`);
+            }
+
+            // --- 播放結束邏輯 ---
+            handlePlaybackEnded() {
+                if (!this.isPlaying) {
+                    this.updatePlayBtn(false);
+                    this.updateMediaSessionState("paused");
+                    return;
+                }
+
+                if (this.isLooping) {
+                    // 單句循環模式
+                    if (this.loopDelay > 0) {
+                        this.showToast(`休息 ${this.loopDelay} 秒...`);
+                        this.delayTimer = setTimeout(() => {
+                            if(this.isPlaying) this.playSentence(this.currentIndex);
+                        }, this.loopDelay * 1000);
+                    } else {
+                        this.playSentence(this.currentIndex);
+                    }
+                } else {
+                    // 正常順序播放
+                    this.nextSentence(true);
+                }
             }
 
             setupMediaSessionHandlers() {
@@ -835,7 +946,6 @@
                 }
             }
 
-            // 🔥 AI 內容生成 (段落式 + 專家口吻 + 特殊符號切割)
             async generateContent() {
                 const topic = document.getElementById('topic-input').value.trim();
                 const count = document.getElementById('count-input').value || 10;
@@ -858,7 +968,8 @@
                 outputArea.value = `AI 專家正在為您撰寫 ${count} 句關於「${topic}」的專業論述...\n(正在構思完整段落並拆解...)\n請稍候...`;
 
                 try {
-                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    // Phase 1: Writer Agent
+                    const writerResponse = await fetch('https://api.openai.com/v1/chat/completions', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -869,37 +980,67 @@
                             messages: [
                                 {
                                     role: "system",
-                                    // 核心修改：Delimiter Strategy Prompt
                                     content: `You are a senior industry expert and professional linguist.
-Your task is to compose a cohesive, professional paragraph about the user's topic, consisting of exactly ${count} sentences.
+Task: Write a cohesive, professional paragraph in ENGLISH about the user's topic.
 
-CRITICAL INSTRUCTIONS:
-1. **Coherence**: The content MUST read like a continuous, logical paragraph or briefing with proper transition words (e.g., Therefore, However, In addition).
-2. **Format**: Output sentence by sentence. Use the delimiter "|||" to separate the English sentence from its Traditional Chinese translation.
-   Format: [English Sentence] ||| [Traditional Chinese Translation]
-3. **Constraints**: NO numbering, NO bullets, NO extra text.
-
-Example Output:
-Project finance relies on cash flow. ||| 專案融資依賴現金流。
-Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
+CRITICAL RULES:
+1. **Language**: Write in **ENGLISH ONLY**. Even if the user's topic is in Chinese (e.g., "專案融資"), you MUST write the content in English. Do NOT output Chinese here.
+2. **Length**: Approximately ${count} sentences.
+3. **Tone**: Authentic, sophisticated, using industry-standard terminology and transition words (e.g., Furthermore, Consequently).
+4. **Output**: Just the raw English paragraph. No intros, no outros.`
                                 },
-                                {
-                                    role: "user",
-                                    content: `Topic: ${topic}`
-                                }
+                                { role: "user", content: `Topic: ${topic}` }
                             ],
                             temperature: 0.7
                         })
                     });
 
-                    if (!response.ok) {
-                        const errData = await response.json();
-                        throw new Error(errData.error?.message || "API 請求失敗");
+                    if (!writerResponse.ok) throw new Error("Writer Agent API Error");
+                    const writerData = await writerResponse.json();
+                    const rawArticle = writerData.choices[0].message.content;
+
+                    // Phase 2: Formatter Agent
+                    btn.innerHTML = `<span class="spinner"></span> 翻譯與格式化...`;
+                    outputArea.value = `[Step 2/2] 英文文章構思完成！\n\n${rawArticle}\n\n----------------\n正在進行翻譯與 JSON 結構化...`;
+
+                    const formatterResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-4o-mini",
+                            response_format: { type: "json_object" }, // 強制 JSON
+                            messages: [
+                                {
+                                    role: "system",
+                                    content: `You are a data engineer.
+Task: 
+1. Read the provided ENGLISH text.
+2. Split it into individual sentences.
+3. Translate each sentence into Traditional Chinese (Taiwan).
+4. Output a JSON object with a "sentences" key, containing an array of objects.
+
+Format: 
+{ "sentences": [ { "en": "English Sentence", "cn": "中文翻譯" } ] }`
+                                },
+                                { role: "user", content: rawArticle }
+                            ]
+                        })
+                    });
+
+                    if (!formatterResponse.ok) throw new Error("Formatter Agent API Error");
+                    const formatterData = await formatterResponse.json();
+                    const finalJsonStr = formatterData.choices[0].message.content;
+                    
+                    try {
+                        const parsed = JSON.parse(finalJsonStr);
+                        outputArea.value = JSON.stringify(parsed.sentences || parsed, null, 2);
+                    } catch(e) {
+                        outputArea.value = finalJsonStr;
                     }
 
-                    const data = await response.json();
-                    const content = data.choices[0].message.content;
-                    outputArea.value = content.trim();
                     this.showToast("生成成功！請按確認匯入");
 
                 } catch (error) {
@@ -912,7 +1053,6 @@ Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
                 }
             }
 
-            // 核心修改：Delimiter 解析器 (V6.4)
             saveContent() {
                 const btn = document.getElementById('btn-save');
                 const originalText = btn.innerText;
@@ -931,37 +1071,18 @@ Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
 
                         let newData = [];
                         
-                        // 1. JSON (Fallback)
                         try {
                             const json = JSON.parse(input);
                             if (Array.isArray(json)) {
-                                this.data = json;
-                                this.finishImport();
-                                return;
+                                newData = json;
+                            } else if (json.sentences && Array.isArray(json.sentences)) {
+                                newData = json.sentences;
                             }
-                        } catch (e) {}
+                        } catch (e) {
+                            const lines = input.split('\n')
+                                .map(line => line.trim())
+                                .filter(line => line.length > 0);
 
-                        // 2. Delimiter Parsing (優先策略)
-                        const lines = input.split('\n')
-                            .map(line => line.trim())
-                            .filter(line => line.length > 0);
-
-                        for (let line of lines) {
-                            // 檢查是否有特殊分隔符
-                            if (line.includes('|||')) {
-                                const parts = line.split('|||');
-                                if (parts.length >= 2) {
-                                    newData.push({
-                                        en: parts[0].trim(),
-                                        cn: parts[1].trim()
-                                    });
-                                }
-                            }
-                        }
-
-                        // 3. Fallback: Old Language Detection (如果沒找到分隔符，試著用舊方法)
-                        if (newData.length === 0) {
-                            console.warn("Delimiter not found, falling back to smart detection");
                             let lastEnglishLine = null;
                             lines.forEach(line => {
                                 const cleanLine = line.replace(/^[\d\-\.\、\s]+/, '').trim();
@@ -979,13 +1100,21 @@ Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
                         }
 
                         if (newData.length === 0) {
-                            alert("無法識別內容！\n請確認內容包含 '|||' 分隔符，或是一行英文、一行中文。");
+                            alert("無法識別內容！請確認格式正確 (建議使用 AI 自動生成)。");
                             btn.innerText = originalText;
                             btn.disabled = false;
                             return;
                         }
 
-                        this.data = newData;
+                        const finalData = newData.filter(item => item.en && item.cn);
+                         if (finalData.length === 0) {
+                             alert("匯入失敗：資料格式不完整 (缺少 en 或 cn 欄位)");
+                             btn.innerText = originalText;
+                             btn.disabled = false;
+                             return;
+                        }
+
+                        this.data = finalData;
                         this.finishImport();
 
                     } catch (err) {
@@ -1223,15 +1352,7 @@ Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
                 this.utterance.rate = 0.9; 
 
                 this.utterance.onend = () => {
-                    if (this.isPlaying) {
-                        if (this.isLooping) {
-                            this.playSentence(this.currentIndex);
-                        } else {
-                            this.nextSentence(true);
-                        }
-                    } else {
-                        this.updatePlayBtn(false);
-                    }
+                    this.handlePlaybackEnded();
                 };
                 
                 this.utterance.onerror = (e) => {
@@ -1244,6 +1365,7 @@ Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
             }
 
             stopAudioEngines() {
+                if (this.delayTimer) clearTimeout(this.delayTimer); // 清除延遲計時器
                 if (this.utterance) {
                     this.utterance.onend = null;
                     this.utterance.onerror = null;
@@ -1255,6 +1377,7 @@ Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
             }
 
             playSentence(index) {
+                if (this.delayTimer) clearTimeout(this.delayTimer); // 手動播放時清除延遲
                 if (index < 0 || index >= this.data.length) return;
                 this.currentIndex = index;
                 this.isPlaying = true;
@@ -1298,16 +1421,21 @@ Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
                 } 
                 
                 if (auto) {
+                    // 自動播放結束
                     if (this.isLooping) {
-                        this.playSentence(this.currentIndex);
+                        // 這裡的邏輯已移至 handlePlaybackEnded，但為保險起見保留
+                        this.handlePlaybackEnded();
                     } else if (this.currentMode === 'full') {
-                        this.playSentence(0);
-                        this.showToast("重新開始播放");
+                        this.showToast("播放完畢，2秒後重播...");
+                        this.delayTimer = setTimeout(() => {
+                            if(this.isPlaying) this.playSentence(0);
+                        }, 2000);
                     } else {
                         this.stop();
                         this.showToast("播放結束");
                     }
                 } else {
+                    // 手動點擊下一句
                     this.playSentence(0);
                     this.showToast("回到第一句");
                 }
