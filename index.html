@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>英文聽力 Vibe Player</title>
     <style>
         /* --- Vibe Coding 風格設定 --- */
@@ -16,21 +16,29 @@
             --highlight: #dbeafe;    
         }
 
-        /* 全域設定：解決寬度溢出問題的關鍵 */
+        /* 全域設定 */
         * {
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+
+        /* App Shell 鎖定模式 */
+        html, body {
+            height: 100%; 
+            width: 100%;
+            overflow: hidden; 
+            position: fixed; 
+            margin: 0;
+            padding: 0;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
-            margin: 0;
-            padding: 0;
-            height: 100vh;
             display: flex;
             flex-direction: column;
             color: var(--text-main);
-            overflow: hidden; 
         }
 
         /* --- 頂部導航列 --- */
@@ -43,7 +51,6 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            /* 手機優先設定，最大寬度 600px */
             max-width: 600px;
             width: 100%;
             margin: 0 auto;
@@ -208,6 +215,7 @@
             margin: 0 auto;
             scroll-behavior: smooth;
             padding-bottom: 20px;
+            -webkit-overflow-scrolling: touch; 
         }
 
         /* 全文模式列表 */
@@ -295,10 +303,7 @@
             align-items: center;
             gap: 20px;
             flex-shrink: 0;
-            
-            /* 修改：大幅增加 padding-bottom 為 130px，確保避開大尺寸廣告 Banner */
             padding-bottom: max(130px, env(safe-area-inset-bottom));
-            
             max-width: 600px;
             width: 100%;
             margin: 0 auto;
@@ -317,6 +322,7 @@
             justify-content: center;
             font-size: 20px;
             transition: all 0.2s;
+            user-select: none; 
         }
         
         .btn-circle:active {
@@ -337,6 +343,7 @@
             font-size: 28px;
             box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
             position: relative; 
+            user-select: none;
         }
         
         .btn-main:hover {
@@ -403,22 +410,28 @@
         
         .input-group {
             display: flex;
-            gap: 8px;
+            gap: 10px;
+            flex-wrap: wrap; 
         }
         .input-topic {
-            flex: 1;
-            padding: 8px;
+            flex: 1 1 100%; 
+            padding: 10px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
             font-size: 14px;
         }
         .input-count {
-            width: 70px;
-            padding: 8px;
+            width: 80px; 
+            padding: 10px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
             font-size: 14px;
             text-align: center;
+        }
+        
+        #btn-generate {
+            flex: 1; 
+            justify-content: center;
         }
         
         textarea {
@@ -460,6 +473,7 @@
         }
         .btn-cancel { background: #e4e4e7; color: #333; }
         .btn-save { background: var(--accent); color: white; }
+        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
         
         .hint {
             font-size: 11px;
@@ -524,13 +538,9 @@
             <button class="toggle-btn active" id="btn-cn" onclick="app.toggleVisibility('cn')">中文</button>
         </div>
 
-        <!-- 懸浮 Slot 切換器 (現在位於 Header 內) -->
+        <!-- 懸浮 Slot 切換器 -->
         <div class="slot-fab-container">
-            <!-- 主按鈕 -->
-            <div class="slot-fab-main" onclick="app.toggleSlotMenu()" id="slot-indicator">
-                📂 1
-            </div>
-            <!-- 展開的選單 (往下) -->
+            <div class="slot-fab-main" onclick="app.toggleSlotMenu()" id="slot-indicator">📂 1</div>
             <div class="slot-menu" id="slot-menu">
                 <div class="slot-item" onclick="app.switchSlot(0)">1</div>
                 <div class="slot-item" onclick="app.switchSlot(1)">2</div>
@@ -550,14 +560,12 @@
         <button class="btn-circle" onclick="app.nextSentence()">⏭</button>
     </div>
 
-    <!-- 編輯器彈窗 (AI 升級版) -->
+    <!-- 編輯器彈窗 -->
     <div class="modal" id="editor-modal">
         <div class="modal-content">
             <div class="modal-title">
                 AI 課程產生器 <span style="font-size:12px; color:#666; font-weight:normal;">(Slot <span id="modal-slot-num">1</span>)</span>
             </div>
-            
-            <!-- API Key 設定 -->
             <div class="api-settings">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:12px; font-weight:bold;">🔑 OpenAI API Key</span>
@@ -566,30 +574,22 @@
                 <input type="password" id="api-key-input" class="api-input" placeholder="sk-..." onchange="app.saveApiKey()">
                 <div class="hint">Key 會儲存在手機瀏覽器中，支援 GPT-4o 生成與 TTS 發音。</div>
             </div>
-            
-            <!-- 區塊 1: 產生指令 -->
             <div class="step-block">
                 <div class="step-label">Step 1: 設定主題與句數</div>
                 <div class="input-group">
                     <input type="text" id="topic-input" class="input-topic" placeholder="輸入主題 (例如：商務會議)">
-                    <!-- 新增：句數輸入框 -->
                     <input type="number" id="count-input" class="input-count" placeholder="句數" value="10" min="1" max="50">
                     <button class="btn-small btn-magic" id="btn-generate" onclick="app.generateContent()">✨ AI 自動生成</button>
                 </div>
             </div>
-
-            <!-- 區塊 2: 結果 -->
             <div class="step-block">
-                <div class="step-label">Step 2: 生成結果 (可手動修改)</div>
+                <div class="step-label">Step 2: 生成結果 (自動填入，可修改)</div>
                 <textarea id="json-input" placeholder="等待 AI 生成中..."></textarea>
             </div>
-
             <div class="modal-actions">
                 <button class="btn-small btn-cancel" onclick="app.closeEditor()">取消</button>
-                <button class="btn-small btn-save" onclick="app.saveContent()">確認匯入</button>
+                <button class="btn-small btn-save" id="btn-save" onclick="app.saveContent()">確認匯入</button>
             </div>
-            
-            <!-- 修改：將恢復原廠按鈕改為提示文字 -->
             <div style="text-align:center; margin-top:10px; font-size:12px; color:#999;">
                 預計將儲存至 Slot <span id="footer-slot-num">1</span>
             </div>
@@ -610,7 +610,6 @@
             { en: "Enjoy your automated learning journey!", cn: "享受你的自動化學習之旅！" }
         ];
 
-        // 預設空資料 (給其他 Slot 用)
         const emptyData = [
             { en: "This slot is empty.", cn: "這個儲存格是空的。" },
             { en: "Click Edit to import content.", cn: "點擊匯入來新增內容。" }
@@ -618,23 +617,20 @@
 
         class App {
             constructor() {
-                // 多 Slot 系統初始化
                 this.MAX_SLOTS = 5;
                 this.slots = Array(this.MAX_SLOTS).fill(null).map(() => [...emptyData]);
-                this.currentSlotIndex = 0; // 0 ~ 4
+                this.currentSlotIndex = 0; 
                 
-                this.data = defaultData; // 當前使用的資料指標
+                this.data = defaultData; 
                 this.currentIndex = 0;
                 this.isPlaying = false;
                 this.isLooping = false;
                 this.currentMode = 'full';
                 
-                // 原生 TTS 引擎
                 this.synth = window.speechSynthesis;
                 this.utterance = null;
                 this.hasAudioUnlocked = false;
                 
-                // OpenAI TTS 引擎
                 this.audioPlayer = new Audio(); 
                 this.audioCache = {}; 
                 this.audioFetchPromises = {}; 
@@ -645,33 +641,28 @@
             }
 
             init() {
-                // 1. 讀取 Slot 存檔
                 const savedSlots = localStorage.getItem('vibe_slots');
                 if (savedSlots) {
                     try {
                         const parsed = JSON.parse(savedSlots);
-                        // 檢查格式是否正確
                         if (parsed.slots && Array.isArray(parsed.slots)) {
                             this.slots = parsed.slots;
                             this.currentSlotIndex = parsed.currentSlot || 0;
                         }
                     } catch (e) { console.error("Slot load error", e); }
                 } else {
-                    // 相容舊版：如果沒有新格式存檔，嘗試讀取舊版單一存檔
                     const oldData = localStorage.getItem('vibe_app_data');
                     if (oldData) {
                         try {
                             this.slots[0] = JSON.parse(oldData);
                         } catch(e) {}
                     } else {
-                        this.slots[0] = defaultData; // 只有 Slot 1 有預設教學
+                        this.slots[0] = defaultData; 
                     }
                 }
 
-                // 載入當前 Slot 資料
                 this.loadSlot(this.currentSlotIndex);
 
-                // 讀取 API Key
                 const savedKey = localStorage.getItem('vibe_api_key');
                 if (savedKey) {
                     this.apiKey = savedKey;
@@ -679,7 +670,8 @@
 
                 this.render();
                 this.updateSlotUI();
-                
+                this.setupMediaSessionHandlers();
+
                 if (this.synth.onvoiceschanged !== undefined) {
                     this.synth.onvoiceschanged = () => { this.synth.getVoices(); };
                 }
@@ -693,6 +685,7 @@
                         }
                     } else {
                         this.updatePlayBtn(false);
+                        this.updateMediaSessionState("paused");
                     }
                 };
                 
@@ -700,12 +693,48 @@
                     console.error("Audio Playback Error", e);
                     this.isApiLoading = false;
                     this.updatePlayBtn(false);
+                    this.updateMediaSessionState("paused");
                     this.showToast("播放失敗，請檢查網路");
                 };
+                
+                this.audioPlayer.onplay = () => this.updateMediaSessionState("playing");
+                this.audioPlayer.onpause = () => this.updateMediaSessionState("paused");
             }
 
-            // --- 多 Slot 管理 ---
-            
+            setupMediaSessionHandlers() {
+                if ('mediaSession' in navigator) {
+                    const ms = navigator.mediaSession;
+                    ms.setActionHandler('play', () => this.togglePlay());
+                    ms.setActionHandler('pause', () => this.togglePlay());
+                    ms.setActionHandler('previoustrack', () => this.prevSentence());
+                    ms.setActionHandler('nexttrack', () => this.nextSentence());
+                    ms.setActionHandler('seekbackward', () => this.prevSentence());
+                    ms.setActionHandler('seekforward', () => this.nextSentence());
+                }
+            }
+
+            updateMediaSessionMetadata() {
+                if ('mediaSession' in navigator) {
+                    const currentItem = this.data[this.currentIndex];
+                    const slotName = `Slot ${this.currentSlotIndex + 1}`;
+                    
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: currentItem.en, 
+                        artist: `Vibe English (${slotName})`,
+                        album: `句 ${this.currentIndex + 1} / ${this.data.length}`,
+                        artwork: [
+                            { src: 'https://cdn-icons-png.flaticon.com/512/2463/2463138.png', sizes: '512x512', type: 'image/png' }
+                        ]
+                    });
+                }
+            }
+
+            updateMediaSessionState(state) {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = state;
+                }
+            }
+
             toggleSlotMenu() {
                 const menu = document.getElementById('slot-menu');
                 menu.classList.toggle('open');
@@ -713,40 +742,40 @@
 
             switchSlot(index) {
                 if (index === this.currentSlotIndex) {
-                    this.toggleSlotMenu(); // 只是關閉選單
+                    this.toggleSlotMenu(); 
                     return;
                 }
                 
-                this.stop(); // 切換前停止播放
+                this.stop(); 
                 this.loadSlot(index);
                 this.render();
-                this.toggleSlotMenu(); // 關閉選單
+                this.toggleSlotMenu(); 
                 this.showToast(`已切換至課程 ${index + 1}`);
             }
 
             loadSlot(index) {
                 this.currentSlotIndex = index;
                 this.data = this.slots[index] || [...emptyData];
-                this.currentIndex = 0; // 重置進度
-                
-                // 儲存狀態
+                this.currentIndex = 0; 
                 this.saveSlotsToStorage();
                 this.updateSlotUI();
             }
 
             saveSlotsToStorage() {
-                const storageObj = {
-                    currentSlot: this.currentSlotIndex,
-                    slots: this.slots
-                };
-                localStorage.setItem('vibe_slots', JSON.stringify(storageObj));
+                try {
+                    const storageObj = {
+                        currentSlot: this.currentSlotIndex,
+                        slots: this.slots
+                    };
+                    localStorage.setItem('vibe_slots', JSON.stringify(storageObj));
+                } catch (e) {
+                    console.error("Storage Error", e);
+                    alert("儲存失敗！\n錯誤: " + e.message + "\n\n您的瀏覽器儲存空間可能已滿。\n建議清除瀏覽器快取或刪除部分課程。");
+                }
             }
 
             updateSlotUI() {
-                // 更新主按鈕文字
                 document.getElementById('slot-indicator').innerText = `📂 ${this.currentSlotIndex + 1}`;
-                
-                // 更新選單內的高亮狀態
                 const items = document.querySelectorAll('.slot-item');
                 items.forEach((item, idx) => {
                     if (idx === this.currentSlotIndex) item.classList.add('active');
@@ -754,7 +783,6 @@
                 });
             }
 
-            // --- 音訊解鎖 ---
             unlockAudio() {
                 if (this.hasAudioUnlocked) return;
                 const u = new SpeechSynthesisUtterance("");
@@ -762,19 +790,15 @@
                 this.hasAudioUnlocked = true;
             }
 
-            // --- 編輯器 & API 相關功能 ---
             openEditor() {
                 document.getElementById('editor-modal').classList.add('open');
-                // 新增：鎖定背景捲動
                 document.body.style.overflow = 'hidden';
                 
                 document.getElementById('json-input').value = ""; 
                 document.getElementById('topic-input').value = "";
                 document.getElementById('count-input').value = "10";
                 
-                // 顯示目前編輯的 Slot
                 document.getElementById('modal-slot-num').innerText = this.currentSlotIndex + 1;
-                // 更新底部提示文字的 Slot
                 document.getElementById('footer-slot-num').innerText = this.currentSlotIndex + 1;
                 
                 const statusEl = document.getElementById('api-status');
@@ -792,7 +816,6 @@
 
             closeEditor() {
                 document.getElementById('editor-modal').classList.remove('open');
-                // 新增：解除背景捲動鎖定
                 document.body.style.overflow = '';
             }
 
@@ -812,7 +835,7 @@
                 }
             }
 
-            // 🔥 AI 內容生成
+            // 🔥 AI 內容生成 (段落式 + 專家口吻 + 特殊符號切割)
             async generateContent() {
                 const topic = document.getElementById('topic-input').value.trim();
                 const count = document.getElementById('count-input').value || 10;
@@ -832,7 +855,7 @@
                 const originalBtnText = btn.innerHTML;
                 btn.innerHTML = `<span class="spinner"></span> 生成中...`;
                 btn.disabled = true;
-                outputArea.value = `AI 正在為您撰寫 ${count} 句關於「${topic}」的內容...\n將存入 Slot ${this.currentSlotIndex + 1}...\n請稍候...`;
+                outputArea.value = `AI 專家正在為您撰寫 ${count} 句關於「${topic}」的專業論述...\n(正在構思完整段落並拆解...)\n請稍候...`;
 
                 try {
                     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -846,7 +869,19 @@
                             messages: [
                                 {
                                     role: "system",
-                                    content: `You are an expert English teacher. Generate ${count} useful, practical English sentences about the user's topic. Format requirements: Strictly one line English followed by one line Traditional Chinese translation. No numbers, no bullets, no intros, no outros. Just the raw sentences.`
+                                    // 核心修改：Delimiter Strategy Prompt
+                                    content: `You are a senior industry expert and professional linguist.
+Your task is to compose a cohesive, professional paragraph about the user's topic, consisting of exactly ${count} sentences.
+
+CRITICAL INSTRUCTIONS:
+1. **Coherence**: The content MUST read like a continuous, logical paragraph or briefing with proper transition words (e.g., Therefore, However, In addition).
+2. **Format**: Output sentence by sentence. Use the delimiter "|||" to separate the English sentence from its Traditional Chinese translation.
+   Format: [English Sentence] ||| [Traditional Chinese Translation]
+3. **Constraints**: NO numbering, NO bullets, NO extra text.
+
+Example Output:
+Project finance relies on cash flow. ||| 專案融資依賴現金流。
+Therefore, risk allocation is key. ||| 因此，風險分擔是關鍵。`
                                 },
                                 {
                                     role: "user",
@@ -877,66 +912,117 @@
                 }
             }
 
+            // 核心修改：Delimiter 解析器 (V6.4)
             saveContent() {
-                const input = document.getElementById('json-input').value.trim();
-                if (!input) {
-                    this.showToast("內容不能為空");
-                    return;
-                }
-
-                let newData = [];
-                const lines = input.split('\n').map(line => line.trim()).filter(line => line !== "");
+                const btn = document.getElementById('btn-save');
+                const originalText = btn.innerText;
+                btn.innerText = "處理中...";
+                btn.disabled = true;
                 
-                if (lines.length < 2) {
-                    alert("格式錯誤，至少需要一句英文和一句中文。");
-                    return;
-                }
+                setTimeout(() => {
+                    try {
+                        const input = document.getElementById('json-input').value.trim();
+                        if (!input) {
+                            this.showToast("內容不能為空");
+                            btn.innerText = originalText;
+                            btn.disabled = false;
+                            return;
+                        }
 
-                for (let i = 0; i < lines.length; i += 2) {
-                    if (i + 1 < lines.length) {
-                        let en = lines[i].replace(/^\d+[\.\、]\s*/, ''); 
-                        let cn = lines[i+1].replace(/^\d+[\.\、]\s*/, '');
-                        newData.push({ en: en, cn: cn });
+                        let newData = [];
+                        
+                        // 1. JSON (Fallback)
+                        try {
+                            const json = JSON.parse(input);
+                            if (Array.isArray(json)) {
+                                this.data = json;
+                                this.finishImport();
+                                return;
+                            }
+                        } catch (e) {}
+
+                        // 2. Delimiter Parsing (優先策略)
+                        const lines = input.split('\n')
+                            .map(line => line.trim())
+                            .filter(line => line.length > 0);
+
+                        for (let line of lines) {
+                            // 檢查是否有特殊分隔符
+                            if (line.includes('|||')) {
+                                const parts = line.split('|||');
+                                if (parts.length >= 2) {
+                                    newData.push({
+                                        en: parts[0].trim(),
+                                        cn: parts[1].trim()
+                                    });
+                                }
+                            }
+                        }
+
+                        // 3. Fallback: Old Language Detection (如果沒找到分隔符，試著用舊方法)
+                        if (newData.length === 0) {
+                            console.warn("Delimiter not found, falling back to smart detection");
+                            let lastEnglishLine = null;
+                            lines.forEach(line => {
+                                const cleanLine = line.replace(/^[\d\-\.\、\s]+/, '').trim();
+                                if (!cleanLine) return;
+                                const hasChinese = /[\u4e00-\u9fa5]/.test(cleanLine);
+                                if (hasChinese) {
+                                    if (lastEnglishLine) {
+                                        newData.push({ en: lastEnglishLine, cn: cleanLine });
+                                        lastEnglishLine = null;
+                                    }
+                                } else {
+                                    lastEnglishLine = cleanLine; 
+                                }
+                            });
+                        }
+
+                        if (newData.length === 0) {
+                            alert("無法識別內容！\n請確認內容包含 '|||' 分隔符，或是一行英文、一行中文。");
+                            btn.innerText = originalText;
+                            btn.disabled = false;
+                            return;
+                        }
+
+                        this.data = newData;
+                        this.finishImport();
+
+                    } catch (err) {
+                        console.error("Save Error:", err);
+                        alert("發生未知錯誤：\n" + err.message);
+                        btn.innerText = originalText;
+                        btn.disabled = false;
                     }
-                }
-                
-                if (newData.length === 0) {
-                    alert("無法識別內容。");
-                    return;
-                }
-                
-                // 更新當前 Slot 的資料
-                this.data = newData;
-                this.slots[this.currentSlotIndex] = newData;
-                
-                this.currentIndex = 0; 
-                this.stop(); 
-                this.audioCache = {}; 
+                }, 50);
+            }
+
+            finishImport() {
+                this.slots[this.currentSlotIndex] = this.data;
+                this.currentIndex = 0;
+                this.stop();
+                this.audioCache = {};
                 this.audioFetchPromises = {};
-                
-                // 存檔所有 Slots
-                this.saveSlotsToStorage();
-                
+                this.saveSlotsToStorage(); 
                 this.render();
-                this.closeEditor(); // closeEditor 會自動解除 overflow 鎖定
-                this.showToast(`成功匯入 Slot ${this.currentSlotIndex + 1}！`);
+                this.closeEditor();
+                this.showToast(`成功匯入 Slot ${this.currentSlotIndex + 1} (共 ${this.data.length} 句)！`);
+                
+                const btn = document.getElementById('btn-save');
+                if (btn) {
+                    btn.innerText = "確認匯入";
+                    btn.disabled = false;
+                }
             }
 
             resetDefault() {
                 if(confirm(`確定要清空 Slot ${this.currentSlotIndex + 1} 嗎？`)) {
                     this.data = [...emptyData];
-                    this.slots[this.currentSlotIndex] = this.data;
-                    
-                    this.currentIndex = 0;
-                    this.stop();
-                    this.saveSlotsToStorage();
-                    this.render();
-                    this.closeEditor(); // closeEditor 會自動解除 overflow 鎖定
+                    this.finishImport();
                     this.showToast("已清空");
                 }
             }
 
-            // --- 播放核心邏輯 (Hybrid Engine) ---
             render() {
                 const container = document.getElementById('content-area');
                 container.innerHTML = '';
@@ -953,10 +1039,14 @@
                         `;
                         container.appendChild(div);
                     });
+                    
                     setTimeout(() => {
                         const activeEl = document.querySelector('.article-line.active');
-                        if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        if (activeEl) {
+                            activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
                     }, 100);
+
                 } else {
                     container.className = 'content card-view show';
                     const item = this.data[this.currentIndex] || {en:"", cn:""};
@@ -1005,6 +1095,7 @@
             async speak(text) {
                 this.unlockAudio();
                 this.stopAudioEngines();
+                this.updateMediaSessionMetadata();
 
                 if (this.apiKey) {
                     try {
@@ -1115,6 +1206,7 @@
                 this.audioPlayer.src = url;
                 this.audioPlayer.play();
                 this.updatePlayBtn(true, false);
+                this.updateMediaSessionState("playing");
             }
 
             speakNative(text) {
@@ -1175,6 +1267,7 @@
                 this.isPlaying = false;
                 this.isApiLoading = false;
                 this.updatePlayBtn(false);
+                this.updateMediaSessionState("paused");
             }
 
             togglePlay() {
