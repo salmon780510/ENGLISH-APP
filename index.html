@@ -327,7 +327,6 @@
             align-items: center;
             gap: 20px;
             flex-shrink: 0;
-            /* 修正：GitHub Pages 沒有廣告，恢復正常底部間距 (20px + iPhone Safe Area) */
             padding-bottom: max(20px, env(safe-area-inset-bottom));
             max-width: 600px;
             width: 100%;
@@ -401,25 +400,71 @@
         .modal-title { font-weight: bold; font-size: 18px; text-align: center; margin-bottom: 5px; }
         
         /* 設定項目樣式 */
+        .setting-group {
+            border-top: 1px solid #eee;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+        .setting-group-title {
+            font-size: 12px;
+            color: #999;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
         .setting-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
+            padding: 8px 0;
         }
         .setting-label {
             font-size: 14px;
             color: var(--text-main);
         }
-        .setting-control input {
+        .setting-control input[type="number"] {
             width: 60px;
             padding: 5px;
             text-align: center;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        
+        .setting-control select {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: white;
+        }
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
         .step-block {
             background: #f9fafb;
             padding: 15px;
@@ -435,6 +480,7 @@
             text-transform: uppercase;
             display: flex;
             justify-content: space-between;
+            cursor: pointer; 
         }
         
         .api-settings {
@@ -527,6 +573,25 @@
             margin-top: 5px;
         }
 
+        #advanced-settings-area {
+            display: none;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .advanced-toggle-btn {
+            background: none;
+            border: none;
+            color: #6366f1;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
         .spinner {
             display: inline-block;
             width: 12px;
@@ -574,7 +639,6 @@
         <div class="header-top">
             <div class="app-title">🎧 Vibe English AI</div>
             <div class="header-btns">
-                <!-- 新增：設定按鈕 -->
                 <button class="icon-btn" onclick="app.openSettings()" title="設定">⚙️</button>
                 <button class="edit-btn" onclick="app.openEditor()">✏️ 匯入</button>
             </div>
@@ -610,17 +674,49 @@
         <button class="btn-circle" onclick="app.nextSentence()">⏭</button>
     </div>
 
-    <!-- 設定彈窗 -->
+    <!-- 設定彈窗 (V9.2 語音控制版) -->
     <div class="modal" id="settings-modal">
         <div class="modal-content">
-            <div class="modal-title">播放設定</div>
-            <div class="setting-item">
-                <div class="setting-label">單句循環間隔 (秒)</div>
-                <div class="setting-control">
-                    <input type="number" id="loop-delay-input" min="0" max="10" value="0">
+            <div class="modal-title">App 設定</div>
+            
+            <!-- 循環設定 -->
+            <div class="setting-group">
+                <div class="setting-group-title">播放控制</div>
+                <div class="setting-item">
+                    <div class="setting-label">單句循環間隔 (秒)</div>
+                    <div class="setting-control">
+                        <input type="number" id="loop-delay-input" min="0" max="10" value="0">
+                    </div>
                 </div>
             </div>
-            <div class="hint">設定當「單句循環」開啟時，每播完一次要休息幾秒再重播。</div>
+
+            <!-- 語音設定 (新增) -->
+            <div class="setting-group">
+                <div class="setting-group-title">AI 語音控制</div>
+                <div class="setting-item">
+                    <div class="setting-label">✨ 依內容自動選角</div>
+                    <label class="switch">
+                        <input type="checkbox" id="smart-voice-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="hint" style="margin-bottom:10px;">開啟時，AI 會根據內容氛圍自動切換聲音。</div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">預設聲音</div>
+                    <div class="setting-control">
+                        <select id="default-voice-select">
+                            <option value="alloy">Alloy (中性/全能)</option>
+                            <option value="echo">Echo (男聲/溫暖)</option>
+                            <option value="fable">Fable (男聲/英式)</option>
+                            <option value="onyx">Onyx (男聲/深沉)</option>
+                            <option value="nova">Nova (女聲/活力)</option>
+                            <option value="shimmer">Shimmer (女聲/清晰)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="hint">當自動選角關閉，或無建議語音時使用。</div>
+            </div>
             
             <div class="modal-actions">
                 <button class="btn-small btn-cancel" onclick="app.closeSettings()">取消</button>
@@ -643,6 +739,7 @@
                 <input type="password" id="api-key-input" class="api-input" placeholder="sk-..." onchange="app.saveApiKey()">
                 <div class="hint">Key 會儲存在手機瀏覽器中，支援 GPT-4o 生成與 TTS 發音。</div>
             </div>
+            
             <div class="step-block">
                 <div class="step-label">Step 1: 設定主題與句數</div>
                 <div class="input-group">
@@ -650,7 +747,20 @@
                     <input type="number" id="count-input" class="input-count" placeholder="句數" value="10" min="1" max="50">
                     <button class="btn-small btn-magic" id="btn-generate" onclick="app.generateContent()">✨ AI 自動生成</button>
                 </div>
+                
+                <button class="advanced-toggle-btn" onclick="app.toggleAdvancedSettings()">
+                    🛠️ 進階設定：AI 人設 (Persona)
+                </button>
+                
+                <div id="advanced-settings-area">
+                    <div style="font-size:12px; font-weight:bold; margin-bottom:5px;">System Prompt (Writer Agent)</div>
+                    <textarea id="system-prompt-input" style="height:100px; font-size:12px; background:#f0fdf4; border:1px solid #86efac;"></textarea>
+                    <div style="text-align:right; margin-top:5px;">
+                        <button type="button" class="btn-small" style="font-size:10px; background:#eee; color:#555;" onclick="app.resetAdvancedSettings()">↺ 恢復預設人設</button>
+                    </div>
+                </div>
             </div>
+
             <div class="step-block">
                 <div class="step-label">Step 2: 生成結果 (可手動修改)</div>
                 <textarea id="json-input" placeholder="等待 AI 生成中..."></textarea>
@@ -679,23 +789,40 @@
             { en: "Enjoy your automated learning journey!", cn: "享受你的自動化學習之旅！" }
         ];
 
-        const emptyData = [
-            { en: "This slot is empty.", cn: "這個儲存格是空的。" },
-            { en: "Click Edit to import content.", cn: "點擊匯入來新增內容。" }
-        ];
+        // 空資料結構：新增 voice 欄位
+        const emptyDataObj = {
+            voice: null, // 預設無特定語音
+            content: [
+                { en: "This slot is empty.", cn: "這個儲存格是空的。" },
+                { en: "Click Edit to import content.", cn: "點擊匯入來新增內容。" }
+            ]
+        };
+
+        // 預設的 AI 人設
+        const DEFAULT_SYSTEM_PROMPT = `You are a senior industry expert and professional linguist.
+Task: Write a cohesive, professional paragraph in ENGLISH about the user's topic.`;
 
         class App {
             constructor() {
                 this.MAX_SLOTS = 5;
-                this.slots = Array(this.MAX_SLOTS).fill(null).map(() => [...emptyData]);
+                // 初始化 Slots：如果 localStorage 有舊資料會在 init() 中覆蓋
+                // 預設結構：{ voice: null, content: [] }
+                this.slots = Array(this.MAX_SLOTS).fill(null).map(() => JSON.parse(JSON.stringify(emptyDataObj)));
                 this.currentSlotIndex = 0; 
                 
                 this.data = defaultData; 
+                this.currentVoice = null; // 當前 Slot 的專屬語音
+                
                 this.currentIndex = 0;
                 this.isPlaying = false;
                 this.isLooping = false;
                 this.currentMode = 'full';
-                this.loopDelay = 0; // 單句循環間隔 (秒)
+                this.loopDelay = 0; 
+                
+                // 語音設定
+                this.smartVoiceMode = true; // 預設開啟智慧選角
+                this.defaultVoice = 'alloy'; // 預設聲音
+                this.customPrompt = DEFAULT_SYSTEM_PROMPT; 
                 
                 this.synth = window.speechSynthesis;
                 this.utterance = null;
@@ -706,35 +833,54 @@
                 this.audioFetchPromises = {}; 
                 this.apiKey = "";
                 this.isApiLoading = false;
-                this.delayTimer = null; // 計時器參照
+                this.delayTimer = null; 
                 
                 this.init = this.init.bind(this);
             }
 
             init() {
+                // 1. 讀取 Slot 存檔
                 const savedSlots = localStorage.getItem('vibe_slots');
                 if (savedSlots) {
                     try {
                         const parsed = JSON.parse(savedSlots);
                         if (parsed.slots && Array.isArray(parsed.slots)) {
-                            this.slots = parsed.slots;
+                            // 資料結構遷移：確保舊版 Array 轉為 Object
+                            this.slots = parsed.slots.map(slot => {
+                                if (Array.isArray(slot)) {
+                                    return { voice: null, content: slot }; // 舊轉新
+                                }
+                                return slot;
+                            });
                             this.currentSlotIndex = parsed.currentSlot || 0;
                         }
                     } catch (e) { console.error("Slot load error", e); }
                 } else {
+                    // 舊版相容
                     const oldData = localStorage.getItem('vibe_app_data');
                     if (oldData) {
                         try {
-                            this.slots[0] = JSON.parse(oldData);
+                            const content = JSON.parse(oldData);
+                            this.slots[0] = { voice: null, content: content };
                         } catch(e) {}
                     } else {
-                        this.slots[0] = defaultData; 
+                        this.slots[0] = { voice: 'alloy', content: defaultData }; 
                     }
                 }
 
                 // 讀取設定
                 const savedDelay = localStorage.getItem('vibe_loop_delay');
                 if (savedDelay) this.loopDelay = parseInt(savedDelay, 10) || 0;
+                
+                const savedPrompt = localStorage.getItem('vibe_custom_prompt');
+                if (savedPrompt) this.customPrompt = savedPrompt;
+                
+                // 讀取語音設定
+                const savedSmartVoice = localStorage.getItem('vibe_smart_voice');
+                if (savedSmartVoice !== null) this.smartVoiceMode = (savedSmartVoice === 'true');
+                
+                const savedDefVoice = localStorage.getItem('vibe_default_voice');
+                if (savedDefVoice) this.defaultVoice = savedDefVoice;
 
                 this.loadSlot(this.currentSlotIndex);
 
@@ -751,7 +897,6 @@
                     this.synth.onvoiceschanged = () => { this.synth.getVoices(); };
                 }
                 
-                // 統一的播放結束處理
                 this.audioPlayer.onended = () => {
                     this.handlePlaybackEnded();
                 };
@@ -773,6 +918,8 @@
                 document.getElementById('settings-modal').classList.add('open');
                 document.body.style.overflow = 'hidden';
                 document.getElementById('loop-delay-input').value = this.loopDelay;
+                document.getElementById('smart-voice-toggle').checked = this.smartVoiceMode;
+                document.getElementById('default-voice-select').value = this.defaultVoice;
             }
 
             closeSettings() {
@@ -783,9 +930,19 @@
             saveSettings() {
                 const delay = parseInt(document.getElementById('loop-delay-input').value, 10);
                 this.loopDelay = isNaN(delay) || delay < 0 ? 0 : delay;
+                
+                this.smartVoiceMode = document.getElementById('smart-voice-toggle').checked;
+                this.defaultVoice = document.getElementById('default-voice-select').value;
+                
                 localStorage.setItem('vibe_loop_delay', this.loopDelay);
+                localStorage.setItem('vibe_smart_voice', this.smartVoiceMode);
+                localStorage.setItem('vibe_default_voice', this.defaultVoice);
+                
                 this.closeSettings();
-                this.showToast(`設定已儲存：單句循環間隔 ${this.loopDelay} 秒`);
+                this.showToast(`設定已儲存`);
+                
+                // 清空快取，因為聲音可能變了
+                this.audioCache = {}; 
             }
 
             // --- 播放結束邏輯 ---
@@ -797,7 +954,6 @@
                 }
 
                 if (this.isLooping) {
-                    // 單句循環模式
                     if (this.loopDelay > 0) {
                         this.showToast(`休息 ${this.loopDelay} 秒...`);
                         this.delayTimer = setTimeout(() => {
@@ -807,7 +963,6 @@
                         this.playSentence(this.currentIndex);
                     }
                 } else {
-                    // 正常順序播放
                     this.nextSentence(true);
                 }
             }
@@ -866,10 +1021,24 @@
 
             loadSlot(index) {
                 this.currentSlotIndex = index;
-                this.data = this.slots[index] || [...emptyData];
+                const slotObj = this.slots[index];
+                
+                // 相容性處理
+                if (Array.isArray(slotObj)) {
+                    this.data = slotObj;
+                    this.currentVoice = null;
+                } else {
+                    this.data = slotObj.content || [];
+                    this.currentVoice = slotObj.voice || null;
+                }
+                
                 this.currentIndex = 0; 
                 this.saveSlotsToStorage();
                 this.updateSlotUI();
+                
+                // 切換 Slot 時清空語音快取
+                this.audioCache = {};
+                this.audioFetchPromises = {};
             }
 
             saveSlotsToStorage() {
@@ -881,7 +1050,7 @@
                     localStorage.setItem('vibe_slots', JSON.stringify(storageObj));
                 } catch (e) {
                     console.error("Storage Error", e);
-                    alert("儲存失敗！\n錯誤: " + e.message + "\n\n您的瀏覽器儲存空間可能已滿。\n建議清除瀏覽器快取或刪除部分課程。");
+                    alert("儲存失敗！\n錯誤: " + e.message + "\n\n您的瀏覽器儲存空間可能已滿。");
                 }
             }
 
@@ -909,6 +1078,9 @@
                 document.getElementById('topic-input').value = "";
                 document.getElementById('count-input').value = "10";
                 
+                // 載入目前的人設
+                document.getElementById('system-prompt-input').value = this.customPrompt;
+                
                 document.getElementById('modal-slot-num').innerText = this.currentSlotIndex + 1;
                 document.getElementById('footer-slot-num').innerText = this.currentSlotIndex + 1;
                 
@@ -926,8 +1098,38 @@
             }
 
             closeEditor() {
+                // 關閉時儲存人設
+                this.saveAdvancedSettings();
                 document.getElementById('editor-modal').classList.remove('open');
                 document.body.style.overflow = '';
+            }
+
+            toggleAdvancedSettings() {
+                const area = document.getElementById('advanced-settings-area');
+                if (area.style.display === 'block') {
+                    area.style.display = 'none';
+                } else {
+                    area.style.display = 'block';
+                }
+            }
+
+            saveAdvancedSettings() {
+                const val = document.getElementById('system-prompt-input').value.trim();
+                if (val) {
+                    this.customPrompt = val;
+                    localStorage.setItem('vibe_custom_prompt', val);
+                }
+            }
+
+            // 修復後的恢復預設值 (無 confirm)
+            resetAdvancedSettings() {
+                this.customPrompt = DEFAULT_SYSTEM_PROMPT;
+                const inputEl = document.getElementById('system-prompt-input');
+                if (inputEl) {
+                    inputEl.value = DEFAULT_SYSTEM_PROMPT;
+                }
+                localStorage.removeItem('vibe_custom_prompt');
+                this.showToast("已恢復預設人設");
             }
 
             saveApiKey() {
@@ -946,9 +1148,12 @@
                 }
             }
 
+            // 🔥 AI 內容生成 (Dual-Agent + Custom Persona + Voice Selection)
             async generateContent() {
                 const topic = document.getElementById('topic-input').value.trim();
                 const count = document.getElementById('count-input').value || 10;
+                
+                this.saveAdvancedSettings();
 
                 if (!this.apiKey) {
                     alert("請先輸入您的 OpenAI API Key！");
@@ -963,12 +1168,13 @@
                 const outputArea = document.getElementById('json-input');
                 
                 const originalBtnText = btn.innerHTML;
-                btn.innerHTML = `<span class="spinner"></span> 生成中...`;
                 btn.disabled = true;
-                outputArea.value = `AI 專家正在為您撰寫 ${count} 句關於「${topic}」的專業論述...\n(正在構思完整段落並拆解...)\n請稍候...`;
 
                 try {
                     // Phase 1: Writer Agent
+                    btn.innerHTML = `<span class="spinner"></span> 專家構思中...`;
+                    outputArea.value = `[Step 1/2] 正在依據您的人設撰寫關於「${topic}」的文章...\n(強制英文輸出模式)...`;
+
                     const writerResponse = await fetch('https://api.openai.com/v1/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -980,14 +1186,13 @@
                             messages: [
                                 {
                                     role: "system",
-                                    content: `You are a senior industry expert and professional linguist.
-Task: Write a cohesive, professional paragraph in ENGLISH about the user's topic.
-
+                                    content: `${this.customPrompt}
+                                    
 CRITICAL RULES:
-1. **Language**: Write in **ENGLISH ONLY**. Even if the user's topic is in Chinese (e.g., "專案融資"), you MUST write the content in English. Do NOT output Chinese here.
+1. **Language**: Write in **ENGLISH ONLY**.
 2. **Length**: Approximately ${count} sentences.
-3. **Tone**: Authentic, sophisticated, using industry-standard terminology and transition words (e.g., Furthermore, Consequently).
-4. **Output**: Just the raw English paragraph. No intros, no outros.`
+3. **Tone**: Adopt the persona defined above.
+4. **Output**: Just the raw English paragraph.`
                                 },
                                 { role: "user", content: `Topic: ${topic}` }
                             ],
@@ -999,9 +1204,9 @@ CRITICAL RULES:
                     const writerData = await writerResponse.json();
                     const rawArticle = writerData.choices[0].message.content;
 
-                    // Phase 2: Formatter Agent
-                    btn.innerHTML = `<span class="spinner"></span> 翻譯與格式化...`;
-                    outputArea.value = `[Step 2/2] 英文文章構思完成！\n\n${rawArticle}\n\n----------------\n正在進行翻譯與 JSON 結構化...`;
+                    // Phase 2: Formatter Agent & Voice Director
+                    btn.innerHTML = `<span class="spinner"></span> 翻譯與選角...`;
+                    outputArea.value = `[Step 2/2] 文章構思完成！\n正在進行翻譯、JSON 結構化與 AI 語音選角...`;
 
                     const formatterResponse = await fetch('https://api.openai.com/v1/chat/completions', {
                         method: 'POST',
@@ -1011,19 +1216,23 @@ CRITICAL RULES:
                         },
                         body: JSON.stringify({
                             model: "gpt-4o-mini",
-                            response_format: { type: "json_object" }, // 強制 JSON
+                            response_format: { type: "json_object" },
                             messages: [
                                 {
                                     role: "system",
-                                    content: `You are a data engineer.
+                                    // 指令升級：要求 AI 挑選聲音
+                                    content: `You are a data engineer and casting director.
 Task: 
 1. Read the provided ENGLISH text.
-2. Split it into individual sentences.
-3. Translate each sentence into Traditional Chinese (Taiwan).
-4. Output a JSON object with a "sentences" key, containing an array of objects.
+2. Determine the most appropriate voice tone from: [alloy, echo, fable, onyx, nova, shimmer].
+3. Split text into sentences and translate into Traditional Chinese.
+4. Output JSON.
 
 Format: 
-{ "sentences": [ { "en": "English Sentence", "cn": "中文翻譯" } ] }`
+{ 
+  "voice": "selected_voice_name",
+  "sentences": [ { "en": "English Sentence", "cn": "中文翻譯" } ] 
+}`
                                 },
                                 { role: "user", content: rawArticle }
                             ]
@@ -1036,12 +1245,12 @@ Format:
                     
                     try {
                         const parsed = JSON.parse(finalJsonStr);
-                        outputArea.value = JSON.stringify(parsed.sentences || parsed, null, 2);
+                        outputArea.value = JSON.stringify(parsed, null, 2);
                     } catch(e) {
                         outputArea.value = finalJsonStr;
                     }
 
-                    this.showToast("生成成功！請按確認匯入");
+                    this.showToast("生成成功！(含語音建議)");
 
                 } catch (error) {
                     console.error(error);
@@ -1070,19 +1279,21 @@ Format:
                         }
 
                         let newData = [];
+                        let newVoice = null;
                         
+                        // 1. 優先嘗試 JSON (V9.2)
                         try {
                             const json = JSON.parse(input);
-                            if (Array.isArray(json)) {
-                                newData = json;
-                            } else if (json.sentences && Array.isArray(json.sentences)) {
+                            // 支援新格式 { voice: "...", sentences: [...] }
+                            if (json.sentences && Array.isArray(json.sentences)) {
                                 newData = json.sentences;
+                                newVoice = json.voice || null;
+                            } else if (Array.isArray(json)) {
+                                newData = json;
                             }
                         } catch (e) {
-                            const lines = input.split('\n')
-                                .map(line => line.trim())
-                                .filter(line => line.length > 0);
-
+                            // Fallback: 純文字解析
+                            const lines = input.split('\n').map(l => l.trim()).filter(l => l.length > 0);
                             let lastEnglishLine = null;
                             lines.forEach(line => {
                                 const cleanLine = line.replace(/^[\d\-\.\、\s]+/, '').trim();
@@ -1100,7 +1311,7 @@ Format:
                         }
 
                         if (newData.length === 0) {
-                            alert("無法識別內容！請確認格式正確 (建議使用 AI 自動生成)。");
+                            alert("無法識別內容！請確認格式正確。");
                             btn.innerText = originalText;
                             btn.disabled = false;
                             return;
@@ -1108,13 +1319,14 @@ Format:
 
                         const finalData = newData.filter(item => item.en && item.cn);
                          if (finalData.length === 0) {
-                             alert("匯入失敗：資料格式不完整 (缺少 en 或 cn 欄位)");
+                             alert("匯入失敗：資料格式不完整");
                              btn.innerText = originalText;
                              btn.disabled = false;
                              return;
                         }
 
                         this.data = finalData;
+                        this.currentVoice = newVoice; // 更新語音
                         this.finishImport();
 
                     } catch (err) {
@@ -1127,7 +1339,12 @@ Format:
             }
 
             finishImport() {
-                this.slots[this.currentSlotIndex] = this.data;
+                // 儲存結構升級：存成物件
+                this.slots[this.currentSlotIndex] = {
+                    voice: this.currentVoice,
+                    content: this.data
+                };
+                
                 this.currentIndex = 0;
                 this.stop();
                 this.audioCache = {};
@@ -1135,7 +1352,10 @@ Format:
                 this.saveSlotsToStorage(); 
                 this.render();
                 this.closeEditor();
-                this.showToast(`成功匯入 Slot ${this.currentSlotIndex + 1} (共 ${this.data.length} 句)！`);
+                
+                let msg = `成功匯入 Slot ${this.currentSlotIndex + 1}`;
+                if (this.currentVoice) msg += ` (語音: ${this.currentVoice})`;
+                this.showToast(msg);
                 
                 const btn = document.getElementById('btn-save');
                 if (btn) {
@@ -1146,12 +1366,14 @@ Format:
 
             resetDefault() {
                 if(confirm(`確定要清空 Slot ${this.currentSlotIndex + 1} 嗎？`)) {
-                    this.data = [...emptyData];
+                    this.data = [...emptyData.content];
+                    this.currentVoice = null;
                     this.finishImport();
                     this.showToast("已清空");
                 }
             }
 
+            // --- 播放核心邏輯 ---
             render() {
                 const container = document.getElementById('content-area');
                 container.innerHTML = '';
@@ -1256,6 +1478,12 @@ Format:
             
             async prefetchAudio(text) {
                 if (!text || this.audioCache[text] || this.audioFetchPromises[text]) return;
+                
+                // 決定語音：Smart Mode ? Current Slot Voice : Default
+                let targetVoice = this.defaultVoice;
+                if (this.smartVoiceMode && this.currentVoice) {
+                    targetVoice = this.currentVoice;
+                }
 
                 const fetchPromise = (async () => {
                     try {
@@ -1268,7 +1496,7 @@ Format:
                             body: JSON.stringify({
                                 model: "tts-1",
                                 input: text,
-                                voice: "alloy"
+                                voice: targetVoice
                             })
                         });
                         if (!response.ok) throw new Error("Prefetch failed");
@@ -1298,6 +1526,12 @@ Format:
                         return;
                     }
                 }
+                
+                // 決定語音
+                let targetVoice = this.defaultVoice;
+                if (this.smartVoiceMode && this.currentVoice) {
+                    targetVoice = this.currentVoice;
+                }
 
                 const fetchPromise = (async () => {
                     const response = await fetch('https://api.openai.com/v1/audio/speech', {
@@ -1309,7 +1543,7 @@ Format:
                         body: JSON.stringify({
                             model: "tts-1",
                             input: text,
-                            voice: "alloy"
+                            voice: targetVoice
                         })
                     });
 
@@ -1365,7 +1599,7 @@ Format:
             }
 
             stopAudioEngines() {
-                if (this.delayTimer) clearTimeout(this.delayTimer); // 清除延遲計時器
+                if (this.delayTimer) clearTimeout(this.delayTimer); 
                 if (this.utterance) {
                     this.utterance.onend = null;
                     this.utterance.onerror = null;
@@ -1377,7 +1611,7 @@ Format:
             }
 
             playSentence(index) {
-                if (this.delayTimer) clearTimeout(this.delayTimer); // 手動播放時清除延遲
+                if (this.delayTimer) clearTimeout(this.delayTimer); 
                 if (index < 0 || index >= this.data.length) return;
                 this.currentIndex = index;
                 this.isPlaying = true;
@@ -1421,9 +1655,7 @@ Format:
                 } 
                 
                 if (auto) {
-                    // 自動播放結束
                     if (this.isLooping) {
-                        // 這裡的邏輯已移至 handlePlaybackEnded，但為保險起見保留
                         this.handlePlaybackEnded();
                     } else if (this.currentMode === 'full') {
                         this.showToast("播放完畢，2秒後重播...");
@@ -1435,7 +1667,6 @@ Format:
                         this.showToast("播放結束");
                     }
                 } else {
-                    // 手動點擊下一句
                     this.playSentence(0);
                     this.showToast("回到第一句");
                 }
